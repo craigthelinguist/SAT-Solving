@@ -15,6 +15,27 @@ isoper(==>).
 isoper(~).
 
 
+isFormula(F) :- atom(F), \+ is_list(F), !.
+isFormula([~, _]) :- !.
+isFormula([Conn, _, _]) :- isoper(Conn), !.
+
+negative_literal([~, X]) :- atom(X).
+positive_literal(X) :- \+ is_list(X), atom(X).
+not_literal(F) :- \+ negative_literal(F), \+ positive_literal(F).
+
+emptylist([]).
+
+
+%% concat(L1, L2, Result)
+%% Holds if Result is the concatenation of list1 and list2.
+%% ==========================================================
+
+concat([], L2, L2).
+
+concat([X|L1], L2, [X|L3]) :-
+   concat(L1, L2, L3).
+
+
 
 %% Set
 %% =======================================
@@ -122,8 +143,115 @@ stree(Formula, [V|Vars], Map, Ans) :-
 
 
 
+%% Predicates for describing Paths in a semantic tableau.
+emptyPath([]:[]).
+
+makePath(Literals, Formulae, Literals:Formulae).
+pathLiterals(Literals:_, Literals).
+pathFormulae(_:Formulae, Formulae).
+
+% Add a single formula to the path.
+pathExtend(Ls:Fs, F, Ls:[F|Fs]) :-
+   isFormula(F).
+
+% Add a list of formulae to the path.
+pathExtend(Ls:Fs, NewFs, Ls:Fs2) :-
+   \+ isFormula(NewFs),
+   concat(NewFs, Fs, Fs2).
+
+pathAddLiteral(Ls:Fs, L, Ls2:Fs) :-
+   positive_literal(L),
+   Ls2 = [L:true|Ls], !.
+
+pathAddLiteral(Ls:Fs, [~, L], Ls2:Fs) :-
+   positive_literal(L),
+   Ls2 = [L:false|Ls], !.
+   
+pathIsClosed(Path) :-
+   pathLiterals(Path, Literals),
+   member(Var:Val, Literals),
+   negation(Val, NegVal),
+   member(Var:NegVal, Literals), !.
+
+pathHasNoFormulae(_:Fs) :-
+   emptylist(Fs).
+
+updatePath(Ls:Fs, NewFs, NewLs, Ls2:Fs2) :-
+   concat(NewFs, Fs, Fs2),
+   concat(NewLs, Ls, Ls2).
+   
+   
+
+%% applyRule(Formula, NewFormulae, NewLiterals, NewPaths)   
+%% Rules for how to expand formulae. The various parameters are
+%% those extra things added to the semantic tableau as a result
+%% of expansion.
+
+applyRule([*, P, Q], [P, Q], _, _).
+
+applyRule([==>, P, Q], [+, [~, P], Q], _, _).
+
+applyRule([~, X], [], OldMap, NewMap) :-
+   positive_literal(X),
+   mapExtend(OldMap, X, false, NewMap).
+   
+applyRule(X, [], OldMap, NewMap) :-
+   positive_literal(X),
+   mapExtend(OldMap, X, true, NewMap).
 
 
+
+%% selectPath(Tableau, Path, NewTableau)
+%% Extract a (non-empty) Path from the Tableau. NewTableau is the
+%% same, but with the extracted Path and any empty Paths removed.
+
+%% Select first non-empty path.
+selectPath([P|TheRest], P, Answer) :-
+   \+ pathHasNoFormulae(P),
+   delEmptyPaths(TheRest, Answer), !.
+
+%% Extracts first non-empty path from the Tableau.
+selectPath([P|Rest], Result, NewTableau) :-
+   pathHasNoFormulae(P),
+   selectPath(Rest, Result, NewTableau).
+
+% Select first formula.
+selectFormula(Path, Formula) :-
+   pathFormulae(Path, [Formula:_]).
+
+% Remove any empty paths from the Tableau.
+delEmptyPaths([], []) :- !.
+
+delEmptyPaths([P|Tableau], Rest) :-
+   pathHasNoFormulae(P),
+   delEmptyPaths(Tableau, Rest).
+
+delEmptyPaths([P|Tableau], [P|Rest]) :-
+   delEmptyPaths(Tableau, Rest), !.
+
+
+
+%% tableau(Formula)
+%% SAT solve a Formula by performing semantic tableau on its negation.
+
+%% Set up the semantic tableau and solve.
+tableau(Formula) :-
+   emptyPath(P),
+   pathExtend(P, [~, Formula]),
+   solve([P]).
+
+%% When you run out of paths to expand.
+solve([]) :- fail.
+
+%% Solve a Tableau with paths to expand.
+solve(OldTableau) :-
+   selectPath(OldTableau, Path, Tableau),
+   selectFormula(Path, Formula),
+   applyRule(Formula, NewFormulae, NewLiterals, NewPaths),
+   updatePath(Path, NewFormulae, NewLiterals, UpdatedPath),
+   pathIsClosed(UpdatedPath),
+   concat([UpdatedPath|NewPaths], Tableau, NewTableau),
+   solve(NewTableau).
 
 
 
