@@ -152,12 +152,12 @@ pathFormulae(_:Formulae, Formulae).
 
 % Add a single formula to the path.
 pathExtend(Ls:Fs, F, Ls:[F|Fs]) :-
-   isFormula(F).
+   isFormula(F), !.
 
 % Add a list of formulae to the path.
 pathExtend(Ls:Fs, NewFs, Ls:Fs2) :-
    \+ isFormula(NewFs),
-   concat(NewFs, Fs, Fs2).
+   concat(NewFs, Fs, Fs2), !.
 
 pathAddLiteral(Ls:Fs, L, Ls2:Fs) :-
    positive_literal(L),
@@ -166,6 +166,8 @@ pathAddLiteral(Ls:Fs, L, Ls2:Fs) :-
 pathAddLiteral(Ls:Fs, [~, L], Ls2:Fs) :-
    positive_literal(L),
    Ls2 = [L:false|Ls], !.
+   
+pathIsClosed([]:_) :- !.
    
 pathIsClosed(Path) :-
    pathLiterals(Path, Literals),
@@ -179,7 +181,11 @@ pathHasNoFormulae(_:Fs) :-
 updatePath(Ls:Fs, NewFs, NewLs, Ls2:Fs2) :-
    concat(NewFs, Fs, Fs2),
    concat(NewLs, Ls, Ls2).
-   
+
+closedPaths(Paths) :-
+   member(Path, Paths),
+   pathIsClosed(Path).
+
    
 
 %% applyRule(Formula, NewFormulae, NewLiterals, NewPaths)   
@@ -187,17 +193,39 @@ updatePath(Ls:Fs, NewFs, NewLs, Ls2:Fs2) :-
 %% those extra things added to the semantic tableau as a result
 %% of expansion.
 
-applyRule([*, P, Q], [P, Q], _, _).
 
-applyRule([==>, P, Q], [+, [~, P], Q], _, _).
+ %%  applyRule(Formula, Path, NewPaths),
 
-applyRule([~, X], [], OldMap, NewMap) :-
-   positive_literal(X),
-   mapExtend(OldMap, X, false, NewMap).
+% Conjunction.
+applyRule([*, P, Q], Ls:Fs, [Ls:Fs2]) :-
+   Fs2 = [[P, Q]|Fs].
+
+% Disjunction.
+applyRule([+, P, Q], Ls:Fs, [Path1, Path2]) :-
+   makePath(Ls, [P|Fs], Path1),
+   makePath(Ls, [Q|Fs], Path2).
+
+% Implication.
+applyRule([==>, P, Q], Ls:Fs, [Ls:Fs2]) :-
+   Fs2 = [[+, [~, P], Q]|Fs].
    
-applyRule(X, [], OldMap, NewMap) :-
+% Negative literal.
+applyRule([~, X], Ls:Fs, [Ls2:Fs]) :-
    positive_literal(X),
-   mapExtend(OldMap, X, true, NewMap).
+   Ls2 = [X:false|Ls].
+   
+% Positive literal.
+applyRule(X, Ls:Fs, [Ls2:Fs]) :-
+   positive_literal(X),
+   Ls2 = [X:true|Ls].
+
+% Negation over conjunction.
+applyRule([~, [*, P, Q]], Ls:Fs, [Ls:Fs2]) :-
+   Fs2 = [[+, [~, P], [~, Q]]|Fs].
+
+% Negation over disjunction.
+applyRule([~, [+, P, Q]], Ls:Fs, [Ls:Fs2]) :-
+   Fs2 = [[*, [~, P], [~, Q]]|Fs].
 
 
 
@@ -216,8 +244,7 @@ selectPath([P|Rest], Result, NewTableau) :-
    selectPath(Rest, Result, NewTableau).
 
 % Select first formula.
-selectFormula(Path, Formula) :-
-   pathFormulae(Path, [Formula:_]).
+selectFormula(Ls:[F|Fs], F, Ls:Fs).
 
 % Remove any empty paths from the Tableau.
 delEmptyPaths([], []) :- !.
@@ -229,29 +256,24 @@ delEmptyPaths([P|Tableau], Rest) :-
 delEmptyPaths([P|Tableau], [P|Rest]) :-
    delEmptyPaths(Tableau, Rest), !.
 
-
-
 %% tableau(Formula)
 %% SAT solve a Formula by performing semantic tableau on its negation.
 
 %% Set up the semantic tableau and solve.
 tableau(Formula) :-
    emptyPath(P),
-   pathExtend(P, [~, Formula]),
-   solve([P]).
+   pathExtend(P, [~, Formula], P2),
+   \+ solve([P2]). % Satisfiable if negation is not satisfiable.
 
 %% When you run out of paths to expand.
 solve([]) :- fail.
 
 %% Solve a Tableau with paths to expand.
-solve(OldTableau) :-
-   selectPath(OldTableau, Path, Tableau),
-   selectFormula(Path, Formula),
-   applyRule(Formula, NewFormulae, NewLiterals, NewPaths),
-   updatePath(Path, NewFormulae, NewLiterals, UpdatedPath),
-   pathIsClosed(UpdatedPath),
-   concat([UpdatedPath|NewPaths], Tableau, NewTableau),
-   solve(NewTableau).
-
-
+solve(Tableau) :-
+   selectPath(Tableau, Path, Tableau2),
+   selectFormula(Path, Formula, Path2),
+   applyRule(Formula, Path2, NewPaths),
+   closedPaths(NewPaths),
+   concat(NewPaths, Tableau2, Tableau3),
+   solve(Tableau3).
 
