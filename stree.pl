@@ -1,4 +1,8 @@
 
+%% ---------- AST predicates
+% Formulae are internally represented as LISP-style S-expressions.
+% These predicates are for helping you figure out the shape of a
+% formula.
 
 isvar(X) :-
    \+ is_list(X), \+ isbool(X), \+ isoper(X).
@@ -14,7 +18,6 @@ isoper(*).
 isoper(==>).
 isoper(~).
 
-
 isFormula(F) :- atom(F), \+ is_list(F), !.
 isFormula([~, _]) :- !.
 isFormula([Conn, _, _]) :- isoper(Conn), !.
@@ -23,12 +26,9 @@ negative_literal([~, X]) :- atom(X).
 positive_literal(X) :- \+ is_list(X), atom(X).
 not_literal(F) :- \+ negative_literal(F), \+ positive_literal(F).
 
-emptylist([]).
 
 
-%% concat(L1, L2, Result)
-%% Holds if Result is the concatenation of list1 and list2.
-%% ==========================================================
+%% ---------- List predicates.
 
 concat([], L2, L2).
 
@@ -36,9 +36,11 @@ concat([X|L1], L2, [X|L3]) :-
    concat(L1, L2, L3).
 
 
+%% ============================================================
+%% Part 1: Semantic Tree.
+%% ============================================================
 
-%% Set
-%% =======================================
+%% ---------- Set predicates.
 
 emptySet([]).
 
@@ -60,8 +62,9 @@ setUnion([Item|Set1], Set2, Union) :-
 
 
 
-%% Map
-%% =======================================
+%% ---------- Map predicates.
+% A mapping from variables to boolean values. A map has no
+% duplicates.
 
 mapLookup([Var:Val|_], Var, Val).
 
@@ -81,9 +84,9 @@ mapExtend(Map, Var, Val, Map3) :-
 
 
 
-%% eval(Formula, Map, Result)
-%% Holds if Formula evaluates to Result in the context of Map.
-%% ==========================================================
+%% ---------- Predicates for evaluating formulae in context.
+% eval(Formula, Map, Result)
+% Holds if Formula evaluates to Result in the context of Map.
 
 % True evaluates to true in any map.
 eval(true, _).
@@ -106,9 +109,9 @@ eval([==>, Arg1, Arg2], Map) :-
 
 
 
-%% freeVars(Formula, FreeVars)
-%% Holds if FreeVars is the set of free variables in Formula.
-%% ==========================================================
+%% ---------- Free variables predicates.
+% freeVars(Formula, FreeVars) holds if FreeVars is the set of free
+% variables in Formula.
 
 freeVars(X, []) :-
    isbool(X), !.
@@ -125,9 +128,8 @@ freeVars([_, Arg1, Arg2], Vars) :-
    setUnion(Vars1, Vars2, Vars), !.
 
 
-%% stree(Formula, Ans)
-%% Holds if Ans is a variable assignment that makes Formula true.
-%% ==============================================================
+
+%% ---------- Semantic tree predicates.
 
 stree(Formula, Ans) :-
    freeVars(Formula, Vars),
@@ -143,41 +145,43 @@ stree(Formula, [V|Vars], Map, Ans) :-
 
 
 
+
+%% ============================================================
+%% Part 2: Tableau Method.
+%% ============================================================
+
+% A Tableau is represented as a list of Paths. A Path is a pair
+%    representing a partial assignment of literals and a set of
+%    formulae yet to be satisfied.
+
+% To solve a Tableau, check first for any open, empty paths.
+%    This means the path's corresponding assignment will
+%    satisfy the expression. Otherwise, select a Path, select a
+%    formula from that Path, then apply an inference rule,
+%    generating new path/s which form a new Tableau that we
+%    recursively solve.
+
+
+
+%% ---------- Predicates for manipulating paths.
+
 % A path is a pairing of literals and formulae.
 makePath(Literals, Formulae, Literals:Formulae).
 
 % An empty path has no formulae.
 emptyPath(_:[]).
 
-% Add a single formula to the path.
-pathExtend(Ls:Fs, F, Ls:[F|Fs]) :-
-   isFormula(F), !.
-
-% Add a list of formulae to the path.
-pathExtend(Ls:Fs, NewFs, Ls:Fs2) :-
-   \+ isFormula(NewFs),
-   concat(NewFs, Fs, Fs2), !.
-
-pathAddLiteral(Ls:Fs, L, Ls2:Fs) :-
-   positive_literal(L),
-   Ls2 = [L:true|Ls], !.
-
-pathAddLiteral(Ls:Fs, [~, L], Ls2:Fs) :-
-   positive_literal(L),
-   Ls2 = [L:false|Ls], !.
-
-closedPath(Ls:_) :-
-   member(Var:Val, Ls),
-   negation(Val, NegVal),
-   member(Var:NegVal, Ls), !.
-
+% A path is open if its partial assignment is empty.
 openPath([]:_) :- !.
 
+% A path is open if we do not have contradictory assignments.
 openPath(Ls:_) :-
    member(Var:Val, Ls),
    negation(Val, NegVal),
    \+ member(Var:NegVal, Ls), !.
 
+% This predicate takes a list of paths and returns another list
+% sans the closed paths of the original.
 withoutClosedPaths([], []) :- !.
 
 withoutClosedPaths([Path|Rest], [Path|R]) :-
@@ -188,13 +192,8 @@ withoutClosedPaths([_|Rest], R) :-
    withoutClosedPaths(Rest, R), !.
 
 
-%% applyRule(Formula, NewFormulae, NewLiterals, NewPaths)   
-%% Rules for how to expand formulae. The various parameters are
-%% those extra things added to the semantic tableau as a result
-%% of expansion.
 
-
- %%  applyRule(Formula, Path, NewPaths),
+%% ---------- Inference rules.
 
 % Conjunction; add P and Q to the path.
 applyRule([*, P, Q], Ls:Fs, [Ls:Fs2]) :-
@@ -236,10 +235,13 @@ applyRule([~, [~, P]], Ls:Fs, [Ls:Fs2]) :-
    Fs2 = [P|Fs], !.
 
 
-%% selectPath(Tableau, Path, NewTableau)
-%% Extract a Path from the Tableau. NewTableau is the same,
-%% but with the extracted Path removed.
 
+%% ---------- Selection rules.
+% At the moment these are quite basic, but we might like to add 
+% better logic for this (e.g. privilege formulae which do not
+% introduce branching).
+
+% Select first path.
 extractPath([P|TheRest], P, TheRest) :- !.
 
 % Select first formula.
@@ -247,21 +249,14 @@ extractFormula(Ls:[F|Fs], F, Ls:Fs) :- !.
 
 
 
+%% ---------- Tableau predicates.
 
-%% tableau(Formula)
-%% SAT solve a Formula by performing semantic tableau on its negation.
-
-%% Set up the semantic tableau and solve.
-
-% Attempt to satisfy the negation of the Formula.
+% Attempt to satisfy the negation of the Formula via tableau.
 falsifiable(Formula) :-
    makePath([], [[~, Formula]], P),
    tableau([P]).
 
-
-%   tableau([  []:[ [~, Formula] ]  ]).
-
-% A Tableau with no paths remaining cannot be solved; all paths were closed.
+% A Tableau with no paths remaining cannot be solved (all paths were closed).
 tableau([]) :- fail.
 
 % A Tableau with an open, empty path satisfied all its formulae.
@@ -277,8 +272,9 @@ tableau(Tableau) :-
    extractFormula(Path, Formula, Path2),
    % Apply the rule to the formula, giving NewPaths to add to the Tableau.
    applyRule(Formula, Path2, NewPaths),
-   % Remove closed paths.
+   % Add new paths to other paths, removed closed paths.
    concat(NewPaths, Tableau2, Tableau3),
    withoutClosedPaths(Tableau3, Tableau4),
+   % Recursively solve the new Tableau.
    tableau(Tableau4).
 
