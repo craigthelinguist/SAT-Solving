@@ -143,12 +143,11 @@ stree(Formula, [V|Vars], Map, Ans) :-
 
 
 
-%% Predicates for describing Paths in a semantic tableau.
-emptyPath([]:[]).
-
+% A path is a pairing of literals and formulae.
 makePath(Literals, Formulae, Literals:Formulae).
-pathLiterals(Literals:_, Literals).
-pathFormulae(_:Formulae, Formulae).
+
+% An empty path has no formulae.
+emptyPath(_:[]).
 
 % Add a single formula to the path.
 pathExtend(Ls:Fs, F, Ls:[F|Fs]) :-
@@ -166,27 +165,28 @@ pathAddLiteral(Ls:Fs, L, Ls2:Fs) :-
 pathAddLiteral(Ls:Fs, [~, L], Ls2:Fs) :-
    positive_literal(L),
    Ls2 = [L:false|Ls], !.
-   
-pathIsClosed([]:_) :- !.
-   
-pathIsClosed(Path) :-
-   pathLiterals(Path, Literals),
-   member(Var:Val, Literals),
+
+closedPath(Ls:_) :-
+   member(Var:Val, Ls),
    negation(Val, NegVal),
-   member(Var:NegVal, Literals), !.
+   member(Var:NegVal, Ls), !.
 
-pathHasNoFormulae(_:Fs) :-
-   emptylist(Fs).
+openPath([]:_) :- !.
 
-updatePath(Ls:Fs, NewFs, NewLs, Ls2:Fs2) :-
-   concat(NewFs, Fs, Fs2),
-   concat(NewLs, Ls, Ls2).
+openPath(Ls:_) :-
+   member(Var:Val, Ls),
+   negation(Val, NegVal),
+   \+ member(Var:NegVal, Ls), !.
 
-closedPaths(Paths) :-
-   member(Path, Paths),
-   pathIsClosed(Path).
+withoutClosedPaths([], []) :- !.
 
-   
+withoutClosedPaths([Path|Rest], [Path|R]) :-
+   openPath(Path),
+   withoutClosedPaths(Rest, R), !.
+
+withoutClosedPaths([_|Rest], R) :-
+   withoutClosedPaths(Rest, R), !.
+
 
 %% applyRule(Formula, NewFormulae, NewLiterals, NewPaths)   
 %% Rules for how to expand formulae. The various parameters are
@@ -196,84 +196,89 @@ closedPaths(Paths) :-
 
  %%  applyRule(Formula, Path, NewPaths),
 
-% Conjunction.
+% Conjunction; add P and Q to the path.
 applyRule([*, P, Q], Ls:Fs, [Ls:Fs2]) :-
-   Fs2 = [[P, Q]|Fs].
+   Fs2 = [[P, Q]|Fs], !.
 
-% Disjunction.
+% Disjunction; add two paths, one with P and one with Q.
 applyRule([+, P, Q], Ls:Fs, [Path1, Path2]) :-
    makePath(Ls, [P|Fs], Path1),
-   makePath(Ls, [Q|Fs], Path2).
+   makePath(Ls, [Q|Fs], Path2), !.
 
-% Implication.
+% Implication; simplify into disjunction.
 applyRule([==>, P, Q], Ls:Fs, [Ls:Fs2]) :-
-   Fs2 = [[+, [~, P], Q]|Fs].
+   Fs2 = [[+, [~, P], Q]|Fs], !.
    
-% Negative literal.
+% Negative literal; add to map.
 applyRule([~, X], Ls:Fs, [Ls2:Fs]) :-
    positive_literal(X),
-   Ls2 = [X:false|Ls].
+   Ls2 = [X:false|Ls], !.
    
-% Positive literal.
+% Positive literal; add to map.
 applyRule(X, Ls:Fs, [Ls2:Fs]) :-
    positive_literal(X),
-   Ls2 = [X:true|Ls].
+   Ls2 = [X:true|Ls], !.
 
-% Negation over conjunction.
+% Negation over conjunction; simplify.
 applyRule([~, [*, P, Q]], Ls:Fs, [Ls:Fs2]) :-
-   Fs2 = [[+, [~, P], [~, Q]]|Fs].
+   Fs2 = [[+, [~, P], [~, Q]]|Fs], !.
 
-% Negation over disjunction.
+% Negation over disjunction; simplify.
 applyRule([~, [+, P, Q]], Ls:Fs, [Ls:Fs2]) :-
-   Fs2 = [[*, [~, P], [~, Q]]|Fs].
+   Fs2 = [[*, [~, P], [~, Q]]|Fs], !.
 
+% Negation over implication; simplify.
+applyRule([~, [==>, P, Q]], Ls:Fs, [Ls:Fs2]) :-
+   Fs2 = [[*, P, [~, Q]]|Fs], !.
+
+% Double negative; simplify.
+applyRule([~, [~, P]], Ls:Fs, [Ls:Fs2]) :-
+   Fs2 = [P|Fs], !.
 
 
 %% selectPath(Tableau, Path, NewTableau)
-%% Extract a (non-empty) Path from the Tableau. NewTableau is the
-%% same, but with the extracted Path and any empty Paths removed.
+%% Extract a Path from the Tableau. NewTableau is the same,
+%% but with the extracted Path removed.
 
-%% Select first non-empty path.
-selectPath([P|TheRest], P, Answer) :-
-   \+ pathHasNoFormulae(P),
-   delEmptyPaths(TheRest, Answer), !.
-
-%% Extracts first non-empty path from the Tableau.
-selectPath([P|Rest], Result, NewTableau) :-
-   pathHasNoFormulae(P),
-   selectPath(Rest, Result, NewTableau).
+extractPath([P|TheRest], P, TheRest) :- !.
 
 % Select first formula.
-selectFormula(Ls:[F|Fs], F, Ls:Fs).
+extractFormula(Ls:[F|Fs], F, Ls:Fs) :- !.
 
-% Remove any empty paths from the Tableau.
-delEmptyPaths([], []) :- !.
 
-delEmptyPaths([P|Tableau], Rest) :-
-   pathHasNoFormulae(P),
-   delEmptyPaths(Tableau, Rest).
 
-delEmptyPaths([P|Tableau], [P|Rest]) :-
-   delEmptyPaths(Tableau, Rest), !.
 
 %% tableau(Formula)
 %% SAT solve a Formula by performing semantic tableau on its negation.
 
 %% Set up the semantic tableau and solve.
-tableau(Formula) :-
-   emptyPath(P),
-   pathExtend(P, [~, Formula], P2),
-   \+ solve([P2]). % Satisfiable if negation is not satisfiable.
 
-%% When you run out of paths to expand.
-solve([]) :- fail.
+% Attempt to satisfy the negation of the Formula.
+falsifiable(Formula) :-
+   makePath([], [[~, Formula]], P),
+   tableau([P]).
 
-%% Solve a Tableau with paths to expand.
-solve(Tableau) :-
-   selectPath(Tableau, Path, Tableau2),
-   selectFormula(Path, Formula, Path2),
+
+%   tableau([  []:[ [~, Formula] ]  ]).
+
+% A Tableau with no paths remaining cannot be solved; all paths were closed.
+tableau([]) :- fail.
+
+% A Tableau with an open, empty path satisfied all its formulae.
+tableau(Tableau) :-
+   extractPath(Tableau, Path, _),
+   emptyPath(Path),
+   openPath(Path).
+
+tableau(Tableau) :-
+   % Extract a Path from Tableau, giving Tableau2.
+   extractPath(Tableau, Path, Tableau2),
+   % Extract a Formula from Path, giving Path2.
+   extractFormula(Path, Formula, Path2),
+   % Apply the rule to the formula, giving NewPaths to add to the Tableau.
    applyRule(Formula, Path2, NewPaths),
-   closedPaths(NewPaths),
+   % Remove closed paths.
    concat(NewPaths, Tableau2, Tableau3),
-   solve(Tableau3).
+   withoutClosedPaths(Tableau3, Tableau4),
+   tableau(Tableau4).
 
