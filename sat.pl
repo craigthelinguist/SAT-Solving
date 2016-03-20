@@ -93,6 +93,7 @@ eval(true, _).
 
 % Variables are true if they're true in the map.
 eval(X, Map) :-
+   atom(X),
    mapLookup(Map, X, true).
 
 % OR: true if either argument is true.
@@ -107,7 +108,9 @@ eval([*, Arg1, Arg2], Map) :-
 eval([==>, Arg1, Arg2], Map) :-
    eval(Arg2, Map) ; \+ eval(Arg1, Map).
 
-
+% NEGATION: true if the argument is false in the map.
+eval([~, X], Map) :-
+   \+ eval(X, Map).
 
 %% ---------- Free variables predicates.
 % freeVars(Formula, FreeVars) holds if FreeVars is the set of free

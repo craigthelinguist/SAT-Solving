@@ -71,7 +71,7 @@ test(Predicate, Input, fail) :-
 
    
 
-%% The tests.
+%% stree tests.
 %% ======================================================================
 
 :- test(stree, [+, x, y], pass).
@@ -82,29 +82,26 @@ test(Predicate, Input, fail) :-
 
 :- test(stree, [==>, a, b], pass).
 
-% This one is a tautology.
+% This one is a tautology...
 :- test(stree, [==>, [*, a, [~, a]],
                      [+, y, z]], pass).
 
-% Its negation is unsatisfiable.
+% So its negation is unsatisfiable.
 :- test(stree, [~, [==>, [*, a, [~, a]],
                          [+, y, z]]], fail).
 
-% Another tautology.
-:- test(stree, [+, x,
-                   [==>, p,
-                         [+, p,
-                             [~, x]]]], pass).
+% Another tautology...
+:- test(stree, [+, x, [==>, p, [+, p, [~, x]]]], pass).
               
-% Its negation is unsatisfiable.
+% ... so its negation is unsatisfiable.
 :- test(stree, [~, [+, x, [==>, p, [+, p, [~, x]]]]], fail).
 
-% Satisfiable by p:false, x:false, y:true
+% Satisfiable by e.g. p:false, x:false, y:true
 :- test(stree, [*, [*, [~, p], [+, x, y]],
                    [+, [~, p], [==>, p, [+, p, [~, x]]]]], pass).
 
+% Both satisfiable.
 :- test(stree, [*, [+, [~, p], [+, x, y]], p], pass).
-
 :- test(stree, [==>, p, [+, p, [~, x]]], pass).
 
 
