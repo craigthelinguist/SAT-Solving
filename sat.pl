@@ -253,20 +253,23 @@ extractFormula(Ls:[F|Fs], F, Ls:Fs) :- !.
 %% ---------- Tableau predicates.
 
 % Attempt to satisfy the negation of the Formula via tableau.
-falsifiable(Formula) :-
+% falsifiable(Formula, Assignment) holds if the specified
+% Assignment makes Formula false.
+falsifiable(Formula, Assignment) :-
    makePath([], [[~, Formula]], P),
-   tableau([P]).
+   tableau([P], Assignment).
 
 % A Tableau with no paths remaining cannot be solved (all paths were closed).
-tableau([]) :- fail.
+tableau([], _) :- fail.
 
 % A Tableau with an open, empty path satisfied all its formulae.
-tableau(Tableau) :-
+tableau(Tableau, Assignment) :-
    extractPath(Tableau, Path, _),
    emptyPath(Path),
-   openPath(Path).
+   openPath(Path),
+   makePath(Assignment, _, Path).
 
-tableau(Tableau) :-
+tableau(Tableau, Assignment) :-
    % Extract a Path from Tableau, giving Tableau2.
    extractPath(Tableau, Path, Tableau2),
    % Extract a Formula from Path, giving Path2.
@@ -277,5 +280,5 @@ tableau(Tableau) :-
    concat(NewPaths, Tableau2, Tableau3),
    withoutClosedPaths(Tableau3, Tableau4),
    % Recursively solve the new Tableau.
-   tableau(Tableau4).
+   tableau(Tableau4, Assignment).
 
