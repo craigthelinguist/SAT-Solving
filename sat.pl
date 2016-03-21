@@ -200,7 +200,7 @@ withoutClosedPaths([_|Rest], R) :-
 
 % Conjunction; add P and Q to the path.
 applyRule([*, P, Q], Ls:Fs, [Ls:Fs2]) :-
-   Fs2 = [[P, Q]|Fs], !.
+   Fs2 = [P, Q|Fs], !.
 
 % Disjunction; add two paths, one with P and one with Q.
 applyRule([+, P, Q], Ls:Fs, [Path1, Path2]) :-
@@ -236,8 +236,6 @@ applyRule([~, [==>, P, Q]], Ls:Fs, [Ls:Fs2]) :-
 % Double negative; simplify.
 applyRule([~, [~, P]], Ls:Fs, [Ls:Fs2]) :-
    Fs2 = [P|Fs], !.
-
-
 
 %% ---------- Selection rules.
 % At the moment these are quite basic, but we might like to add 
