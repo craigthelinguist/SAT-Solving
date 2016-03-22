@@ -71,38 +71,67 @@ test(Predicate, Input, fail) :-
 
    
 
-%% stree tests.
+%% Satisfiability tests using semantic tree method.
 %% ======================================================================
 
-:- test(stree, [+, x, y], pass).
+% Simple connectives.
+:- test(satisfiable, x, pass).
+:- test(satisfiable, [*, x, y], pass).
+:- test(satisfiable, [~, x], pass).
+:- test(satisfiable, [~, [+, x, y]], pass).
+:- test(satisfiable, [~, [*, x, y]], pass).
+:- test(satisfiable, [~, [==>, x, y]], pass).
+:- test(satisfiable, [+, x, y], pass).
+:- test(satisfiable, [+, x, [~, x]], pass).
+:- test(satisfiable, [*, x, [~, x]], fail).
+:- test(satisfiable, [==>, a, b], pass).
 
-:- test(stree, [+, x, [~, x]], pass).
+% Tautologies.
+:- test(satisfiable, [==>, [*, a, [~, a]], [+, y, z]], pass).
+:- test(satisfiable, [+, x, [==>, p, [+, p, [~, x]]]], pass).
+:- test(satisfiable, [==>, p, [+, p, [~, x]]], pass).
 
-:- test(stree, [*, x, [~, x]], fail).
+% Negation of above tautologies.
+:- test(satisfiable, [~, [==>, [*, a, [~, a]], [+, y, z]]], fail).
+:- test(satisfiable, [~, [+, x, [==>, p, [+, p, [~, x]]]]], fail).
 
-:- test(stree, [==>, a, b], pass).
-
-% This one is a tautology...
-:- test(stree, [==>, [*, a, [~, a]],
-                     [+, y, z]], pass).
-
-% So its negation is unsatisfiable.
-:- test(stree, [~, [==>, [*, a, [~, a]],
-                         [+, y, z]]], fail).
-
-% Another tautology...
-:- test(stree, [+, x, [==>, p, [+, p, [~, x]]]], pass).
-              
-% ... so its negation is unsatisfiable.
-:- test(stree, [~, [+, x, [==>, p, [+, p, [~, x]]]]], fail).
-
+% Contingent formulae.
 % Satisfiable by e.g. p:false, x:false, y:true
-:- test(stree, [*, [*, [~, p], [+, x, y]],
+:- test(satisfiable, [*, [*, [~, p], [+, x, y]],
                    [+, [~, p], [==>, p, [+, p, [~, x]]]]], pass).
-
-% Both satisfiable.
-:- test(stree, [*, [+, [~, p], [+, x, y]], p], pass).
-:- test(stree, [==>, p, [+, p, [~, x]]], pass).
+:- test(satisfiable, [*, [+, [~, p], [+, x, y]], p], pass).
 
 
 
+%% Falsifiability tests using semantic tableau method.
+%% ======================================================================
+
+% Simple connectives.
+:- test(falsifiable, x, pass).
+:- test(falsifiable, [*, x, y], pass).
+:- test(falsifiable, [+, x, y], pass).
+:- test(falsifiable, [==>, x, y], pass).
+:- test(falsifiable, [~, x], pass).
+:- test(falsifiable, [~, [+, x, y]], pass).
+:- test(falsifiable, [~, [*, x, y]], pass).
+:- test(falsifiable, [~, [==>, x, y]], pass).
+
+% Tautologies are not falsifiable.
+:- test(falsifiable, [==>, [*, a, [~, a]],
+                     [+, y, z]], fail).
+:- test(falsifiable, [+, x, [==>, p, [+, p, [~, x]]]], fail).
+:- test(falsifiable, [+, x, [~, x]], fail).
+:- test(falsifiable, [==>, p, [+, p, [~, x]]], fail).
+
+% Negation of above tautologies.
+:- test(falsifiable, [~, [==>, [*, a, [~, a]], [+, y, z]]], pass).
+:- test(falsifiable, [~, [+, x, [==>, p, [+, p, [~, x]]]]], pass).
+
+% Contingent formulae.
+:- test(falsifiable, [*, [*, [~, p], [+, x, y]],
+                   [+, [~, p], [==>, p, [+, p, [~, x]]]]], pass).
+:- test(falsifiable, [*, [+, [~, p], [+, x, y]], p], pass).
+
+% Contradictions.
+:- test(falsifiable, [*, x, [~, x]], pass).
+:- test(falsifiable, [==>, x, [~, x]], pass).

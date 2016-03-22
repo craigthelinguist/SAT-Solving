@@ -9,7 +9,7 @@ isvar(X) :-
 
 isbool(true).
 isbool(false).
-
+ 
 negation(true, false).
 negation(false, true).
 
@@ -133,6 +133,9 @@ freeVars([_, Arg1, Arg2], Vars) :-
 
 
 %% ---------- Semantic tree predicates.
+
+satisfiable(F, A) :-
+   stree(F, A).
 
 stree(Formula, Ans) :-
    freeVars(Formula, Vars),
