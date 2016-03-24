@@ -12,6 +12,33 @@ var(Row, Col, Var) :-
    atom_number(C, Col),
    atomic_list_concat([b, :, R, :, C], Var).
 
+% Return the Cartesian product of two lists A and B.
+cartesian([], _, []).
+
+cartesian([A|As], B, AxB) :-
+   cartesian(As, B, SubList),
+   findall(Pair, (member(X, B), Pair = A:X), Pairs),
+   append(Pairs, SubList, AxB).
+
+% There is a queen on each row.
+queenOnRowR(N, Row, Formula) :-
+   range(0, N, Cols),
+   findall(V, (member(Col, Cols), var(Row, Col, V)), RowVars),
+   disjunction(RowVars, Formula).
+
+queenOnAllRows(N, Formula) :-
+   range(0, N, Rows),
+   findall(F, (member(Row, Rows), queenOnRowR(N, Row, F)), Formulae),
+   conjunction(Formulae, Formula).
+
+
+% Generate a list of numbers from start inclusive to end exclusive.
+range(End, End, []) :- !.
+
+range(Start, End, [Start|Rest]) :-
+   X is Start + 1,
+   range(X, End, Rest), !.
+
 % Return the disjunction over the given formulae.
 disjunction([F], [F]) :- !.
 disjunction(x, x) :- !.
