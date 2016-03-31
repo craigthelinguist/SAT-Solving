@@ -1,5 +1,19 @@
 
-:- [sat].
+:- [sat], [io].
+
+
+
+
+%% Test a Prolog term from a file.
+%% ======================================================================
+
+test_satisfiable(Fname) :-
+   load(Fname, F),
+   satisfiable(F, _), !.
+
+test_falsifiable(Fname) :-
+   load(Fname, F),
+   falsifiable(F, _), !.
 
 
 %% Predicates for formatting output.
@@ -37,7 +51,6 @@ to_ccodes([*, X, Y], R) :-
 to_str(F, S) :-
    to_ccodes(F, R),
    atom_codes(S, R).
-
 
 
 %% Test and give message based on pass or failure.
@@ -135,3 +148,11 @@ test(Predicate, Input, fail) :-
 % Contradictions.
 :- test(falsifiable, [*, x, [~, x]], pass).
 :- test(falsifiable, [==>, x, [~, x]], pass).
+
+
+
+
+
+
+
+
