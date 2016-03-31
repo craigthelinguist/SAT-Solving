@@ -29,6 +29,7 @@ not_literal(F) :- \+ negative_literal(F), \+ positive_literal(F).
 
 
 
+
 %% ============================================================
 %% Part 1: Semantic Tree.
 %% ============================================================
@@ -240,12 +241,6 @@ applyRule([~, [~, P]], Ls:Fs, [Ls:Fs2]) :-
 
 % Select first path.
 extractPath([P|TheRest], P, TheRest) :- !.
-
-
-% Select first formula that doesn't introduce branching.
-% Comment out this case if you want naive selection.
-extractFormula(Ls:[F|Fs], F, Ls:Fs) :-
-   F \= [+, _, _].
 
 % Select first formula.
 extractFormula(Ls:[F|Fs], F, Ls:Fs) :- !.

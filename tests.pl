@@ -4,18 +4,6 @@
 
 
 
-%% Test a Prolog term from a file.
-%% ======================================================================
-
-test_satisfiable(Fname) :-
-   load(Fname, F),
-   satisfiable(F, _), !.
-
-test_falsifiable(Fname) :-
-   load(Fname, F),
-   falsifiable(F, _), !.
-
-
 %% Predicates for formatting output.
 %% ======================================================================
 
@@ -23,7 +11,7 @@ join([], []).
 
 join([X|Xs], Result) :-
    join(Xs, RHS),
-   concat(X, RHS, Result).   
+   append(X, RHS, Result).   
 
 to_ccodes(X, S) :-
    atom(X),
@@ -67,7 +55,7 @@ test(Predicate, Input, pass) :-
    ; (join(["failed: ", P, "(", I, ")"], CCodes),
       atom_codes(S, CCodes), write(S))),
 
-   nl.
+   nl, !.
 
 test(Predicate, Input, fail) :-
    
@@ -80,7 +68,7 @@ test(Predicate, Input, fail) :-
    ; (join(["failed: ", P, "(", I, ")"], CCodes),
       atom_codes(S, CCodes), write(S))),
 
-   nl.
+   nl, !.
 
    
 
@@ -150,6 +138,21 @@ test(Predicate, Input, fail) :-
 :- test(falsifiable, [==>, x, [~, x]], pass).
 
 
+
+%% Test stuff from a file.
+%% ======================================================================
+
+testFile(Fname, Predicate) :-
+   load(Fname, Ast),
+   call(Predicate, Ast, _), !.
+
+timeFile(Fname, Predicate) :-
+   load(Fname, Ast),
+   time(call(Predicate, Ast, _)), !.
+
+timeNQueens(N, Predicate) :-
+   nqueens(N, Ast),
+   time(call(Predicate, Ast, _)), !.
 
 
 

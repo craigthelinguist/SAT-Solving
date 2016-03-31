@@ -1,7 +1,10 @@
 
 
 
-import sys
+import sys, os
+
+# Python likes to bottom out on .dimacs files so let's increase this a bit.
+sys.setrecursionlimit(1000000000)
 
 def num2var(x):
     return "v{}".format(x)
@@ -9,16 +12,34 @@ def num2var(x):
 def disjunction(clause):
     if len(clause) == 1:
         return clause[0]
-    return ['+', clause[0], disjunction(clause[1:])]
+    stack = []
+    for i, cl in enumerate(clause):
+        if i == len(clause) - 1:
+            formula = cl
+        else:
+            stack.append(cl)
+    while len(stack) > 0:
+        cl = stack.pop()
+        formula = ["+", cl, formula]
+    return formula
+
 
 def conjunction(clause):
     if len(clause) == 1:
         return clause[0]
-    return ['*', clause[0], disjunction(clause[1:])]
+    stack = []
+    for i, cl in enumerate(clause):
+        if i == len(clause) - 1:
+            formula = cl
+        else:
+            stack.append(cl)
+    while len(stack) > 0:
+        cl = stack.pop()
+        formula = ["*", cl, formula]
+    return formula
 
 
-def main():
-    fname = sys.argv[1]
+def process(fname):
     if fname.endswith(".dimacs"):
         fname = fname[:-7]
     with open(fname + ".dimacs", "rb") as f:
@@ -42,6 +63,19 @@ def main():
     with open(fname + ".sexpr", "wb") as f:
         f.write(str(conjunct))
         f.write(".")
+
+def main():
+    if len(sys.argv) == 2:
+        process(sys.argv[1])
+        print "Processed {}".format(sys.argv[1])
+    elif len(sys.argv) == 1:
+        files = [i for i in os.listdir(os.getcwd()) if i.endswith(".dimacs")]
+        for f in files:
+            process(f)
+    else:
+        print '''usage: Python dimacs2sexpr.py for all files in directory.
+                        Python dimacs2sexpr.py FILENAME for a single file.'''
+        
 
 if __name__ == "__main__":
     main()
