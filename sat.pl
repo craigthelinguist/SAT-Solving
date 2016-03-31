@@ -28,13 +28,6 @@ not_literal(F) :- \+ negative_literal(F), \+ positive_literal(F).
 
 
 
-%% ---------- List predicates.
-
-concat([], L2, L2).
-
-concat([X|L1], L2, [X|L3]) :-
-   concat(L1, L2, L3).
-
 
 %% ============================================================
 %% Part 1: Semantic Tree.
@@ -248,8 +241,16 @@ applyRule([~, [~, P]], Ls:Fs, [Ls:Fs2]) :-
 % Select first path.
 extractPath([P|TheRest], P, TheRest) :- !.
 
+
+% Select first formula that doesn't introduce branching.
+% Comment out this case if you want naive selection.
+extractFormula(Ls:[F|Fs], F, Ls:Fs) :-
+   F \= [+, _, _].
+
 % Select first formula.
 extractFormula(Ls:[F|Fs], F, Ls:Fs) :- !.
+
+
 
 
 
@@ -280,7 +281,7 @@ tableau(Tableau, Assignment) :-
    % Apply the rule to the formula, giving NewPaths to add to the Tableau.
    applyRule(Formula, Path2, NewPaths),
    % Add new paths to other paths, removed closed paths.
-   concat(NewPaths, Tableau2, Tableau3),
+   append(NewPaths, Tableau2, Tableau3),
    withoutClosedPaths(Tableau3, Tableau4),
    % Recursively solve the new Tableau.
    tableau(Tableau4, Assignment).
