@@ -7,7 +7,11 @@ import sys, os
 sys.setrecursionlimit(1000000000)
 
 def num2var(x):
-    return "v{}".format(x)
+    # negative literal
+    if x.startswith("-"):
+        return ["~", "v{}".format(x[1:])]
+    else:
+        return "v{}".format(x)
 
 def disjunction(clause):
     if len(clause) == 1:
